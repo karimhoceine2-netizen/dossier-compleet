@@ -1,9 +1,11 @@
 """Start a local showcase without installing packages or starting external services."""
+
 import argparse
 import sys
 import make_demo_data
 import portal_server
 from dossier_common import MANIFEST
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -17,5 +19,7 @@ def main():
         portal_server.main()
     except KeyboardInterrupt:
         print("\nLocal demo stopped.")
+
+
 if __name__ == "__main__":
     main()

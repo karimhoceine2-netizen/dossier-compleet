@@ -95,6 +95,10 @@ Add authenticated office access (today the dashboard and the uploaded files are 
 
 This is a loopback-only learning demo, not a deployed accounting service. No client use, time savings, model accuracy or business results are claimed. The snapshots show synthetic scenario states.
 
+## Code conventions
+
+The fictional office is Dutch, so user-facing text and domain vocabulary are Dutch (statuses such as `goedgekeurd`, `afgewezen` and `twijfel`). Code, comments and this documentation are English. Python is formatted with `ruff format` (line length 120, see `ruff.toml`).
+
 ## License
 
 [MIT](LICENSE). Third-party font notices: [`tools/dossier_web/atkinson-OFL.txt`](tools/dossier_web/atkinson-OFL.txt).

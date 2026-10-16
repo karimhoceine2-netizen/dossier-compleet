@@ -66,25 +66,56 @@ SCHEMA = {
         "btw": {"type": ["number", "null"]},
         "omschrijving": {"type": "string"},
     },
-    "required": ["documentsoort", "leesbaar", "rekeninghouder", "afzender", "geadresseerde",
-                 "datum_van", "datum_tot", "totaal", "btw", "omschrijving"],
+    "required": [
+        "documentsoort",
+        "leesbaar",
+        "rekeninghouder",
+        "afzender",
+        "geadresseerde",
+        "datum_van",
+        "datum_tot",
+        "totaal",
+        "btw",
+        "omschrijving",
+    ],
 }
 
 SLOT_OF_KIND = {"bankafschrift": "bank", "verkoopfactuur": "verkoop", "inkoopfactuur": "inkoop"}
-KIND_LABEL = {"bankafschrift": "een bankafschrift", "verkoopfactuur": "een verkoopfactuur",
-              "inkoopfactuur": "een inkoopfactuur of bon", "overig": "geen bankafschrift, factuur of bon"}
-MONTHS = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september",
-          "oktober", "november", "december"]
+KIND_LABEL = {
+    "bankafschrift": "een bankafschrift",
+    "verkoopfactuur": "een verkoopfactuur",
+    "inkoopfactuur": "een inkoopfactuur of bon",
+    "overig": "geen bankafschrift, factuur of bon",
+}
+MONTHS = [
+    "januari",
+    "februari",
+    "maart",
+    "april",
+    "mei",
+    "juni",
+    "juli",
+    "augustus",
+    "september",
+    "oktober",
+    "november",
+    "december",
+]
 
 
 # ---------- reading (AI) ----------
+
 
 def pdf_pages_bin():
     """The PDF page renderer, compiled once from pdf_pages.swift (and again when the source changes)."""
     if not PDF_PAGES_BIN.exists() or PDF_PAGES_BIN.stat().st_mtime < PDF_PAGES_SRC.stat().st_mtime:
         PDF_PAGES_BIN.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["swiftc", "-O", str(PDF_PAGES_SRC), "-o", str(PDF_PAGES_BIN)],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["swiftc", "-O", str(PDF_PAGES_SRC), "-o", str(PDF_PAGES_BIN)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     return PDF_PAGES_BIN
 
 
@@ -101,15 +132,25 @@ def to_images(path, workdir):
     Returns (images, page_count)."""
     path = Path(path)
     if path.suffix.lower() == ".pdf":
+
         def run(pages):
-            return subprocess.run([str(pdf_pages_bin()), str(path), workdir, str(IMAGE_SIZE), pages],
-                                  check=True, capture_output=True, text=True).stdout.split("\n")
+            return subprocess.run(
+                [str(pdf_pages_bin()), str(path), workdir, str(IMAGE_SIZE), pages],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.split("\n")
+
         count = int(run("")[0])
         images = [Path(p) for p in run(",".join(map(str, pages_to_send(count))))[1:] if p]
     else:
         count, out = 1, Path(workdir) / (path.stem + ".jpg")
-        subprocess.run(["sips", "-Z", str(IMAGE_SIZE), "-s", "format", "jpeg", str(path), "--out", str(out)],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["sips", "-Z", str(IMAGE_SIZE), "-s", "format", "jpeg", str(path), "--out", str(out)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         images = [out]
     if not images or not all(i.exists() for i in images):
         raise RuntimeError(f"Could not turn {path.name} into an image")
@@ -131,12 +172,19 @@ def read_document(path, model=DEFAULT_MODEL, use_cache=True):
     prompt = PROMPT
     if len(images) > 1:
         shown = pages_to_send(count)
-        prompt += (f"\n\nThe document has {count} pages. The {len(images)} images are pages "
-                   f"{', '.join(map(str, shown))}, in that order. Read them together as one document: "
-                   "names and periods are usually on the first page, totals on the last.")
-    body = {"model": model, "stream": False, "format": SCHEMA, "keep_alive": "30m",
-            "options": {"temperature": 0, "num_ctx": 8192},
-            "messages": [{"role": "user", "content": prompt, "images": b64}]}
+        prompt += (
+            f"\n\nThe document has {count} pages. The {len(images)} images are pages "
+            f"{', '.join(map(str, shown))}, in that order. Read them together as one document: "
+            "names and periods are usually on the first page, totals on the last."
+        )
+    body = {
+        "model": model,
+        "stream": False,
+        "format": SCHEMA,
+        "keep_alive": "30m",
+        "options": {"temperature": 0, "num_ctx": 8192},
+        "messages": [{"role": "user", "content": prompt, "images": b64}],
+    }
     start = time.monotonic()
     status, _, text, _ = http(f"{OLLAMA}/api/chat", method="POST", data=body, timeout=600)
     seconds = round(time.monotonic() - start, 1)
@@ -154,14 +202,22 @@ def sharpness(path, size=800):
     which happily "reads" (invents) text on blurred photos."""
     with tempfile.TemporaryDirectory() as tmp:
         bmp = Path(tmp) / "x.bmp"
-        subprocess.run(["sips", "-Z", str(size), "-s", "format", "bmp", str(path), "--out", str(bmp)],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["sips", "-Z", str(size), "-s", "format", "bmp", str(path), "--out", str(bmp)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         b = bmp.read_bytes()
-    offset, (w, h), bpp = struct.unpack_from("<I", b, 10)[0], struct.unpack_from("<ii", b, 18), struct.unpack_from("<H", b, 28)[0]
+    offset, (w, h), bpp = (
+        struct.unpack_from("<I", b, 10)[0],
+        struct.unpack_from("<ii", b, 18),
+        struct.unpack_from("<H", b, 28)[0],
+    )
     step, row_len = bpp // 8, ((bpp * w + 31) // 32) * 4
     gray = []
     for y in range(abs(h)):
-        row = b[offset + y * row_len: offset + y * row_len + w * step]
+        row = b[offset + y * row_len : offset + y * row_len + w * step]
         gray.append([(row[i + 2] * 299 + row[i + 1] * 587 + row[i] * 114) // 1000 for i in range(0, w * step, step)])
     edges = []
     for y in range(1, len(gray) - 1):
@@ -224,24 +280,33 @@ def decide(fields, slot, client, q_start=QUARTER_START, q_end=QUARTER_END):
         return out
 
     if fields.get("scherpte") is not None and fields["scherpte"] < BLUR_MIN:
-        return result("afgewezen", "onleesbaar",
-                      "De foto is te wazig om te lezen. Wil je een nieuwe foto maken bij goed licht, "
-                      "recht boven het document en met de camera scherpgesteld, of de PDF uploaden?")
+        return result(
+            "afgewezen",
+            "onleesbaar",
+            "De foto is te wazig om te lezen. Wil je een nieuwe foto maken bij goed licht, "
+            "recht boven het document en met de camera scherpgesteld, of de PDF uploaden?",
+        )
 
     # Models often say "not readable" while reading everything fine (e.g. because of the watermark),
     # so only reject when the key facts are also missing.
     has_date = bool(parse_date(fields.get("datum_van")) or parse_date(fields.get("datum_tot")))
     has_key_facts = has_date and (fields.get("totaal") is not None or soort == "bankafschrift")
     if not fields.get("leesbaar", True) and not has_key_facts:
-        return result("afgewezen", "onleesbaar",
-                      "Dit document is niet goed leesbaar (wazig, donker of afgesneden). Wil je een nieuwe foto "
-                      "maken bij goed licht, recht boven het document, of de PDF uploaden?")
+        return result(
+            "afgewezen",
+            "onleesbaar",
+            "Dit document is niet goed leesbaar (wazig, donker of afgesneden). Wil je een nieuwe foto "
+            "maken bij goed licht, recht boven het document, of de PDF uploaden?",
+        )
 
     if {fields.get("totaal"), fields.get("btw")} & PLACEHOLDER_AMOUNTS:
-        return result("twijfel", "verdachte_waarden",
-                      "Dank je! Een medewerker van het kantoor bekijkt dit document nog even.",
-                      f"De AI las bedragen die op opvulwaarden lijken ({fields.get('totaal')} / {fields.get('btw')}); "
-                      "mogelijk kon het document niet goed gelezen worden. Graag handmatig beoordelen.")
+        return result(
+            "twijfel",
+            "verdachte_waarden",
+            "Dank je! Een medewerker van het kantoor bekijkt dit document nog even.",
+            f"De AI las bedragen die op opvulwaarden lijken ({fields.get('totaal')} / {fields.get('btw')}); "
+            "mogelijk kon het document niet goed gelezen worden. Graag handmatig beoordelen.",
+        )
 
     # What kind of document is it, from the client's point of view?
     if soort == "bankafschrift":
@@ -254,24 +319,33 @@ def decide(fields, slot, client, q_start=QUARTER_START, q_end=QUARTER_END):
         elif name_matches(fields.get("geadresseerde"), client):
             kind, who = "inkoopfactuur", fields.get("geadresseerde")
         else:
-            return result("twijfel", "andere_naam",
-                          "Dank je! Een medewerker van het kantoor bekijkt dit document nog even.",
-                          f"Factuur van '{fields.get('afzender')}' aan '{fields.get('geadresseerde')}': geen van beide "
-                          f"lijkt op {client['business']} of {client['name']}. Graag handmatig beoordelen.")
+            return result(
+                "twijfel",
+                "andere_naam",
+                "Dank je! Een medewerker van het kantoor bekijkt dit document nog even.",
+                f"Factuur van '{fields.get('afzender')}' aan '{fields.get('geadresseerde')}': geen van beide "
+                f"lijkt op {client['business']} of {client['name']}. Graag handmatig beoordelen.",
+            )
     else:
         kind, who = "overig", None
     out["kind"] = kind
 
     desc = (fields.get("omschrijving") or "een ander soort document").rstrip(".").lower()
     if kind == "overig" or SLOT_OF_KIND.get(kind) not in REQUIRED_ITEMS:
-        return result("afgewezen", "verkeerd_type",
-                      f"Je uploadde dit bij '{wanted_label}', maar het lijkt {KIND_LABEL['overig']} "
-                      f"({desc}). Wil je het juiste document uploaden?")
+        return result(
+            "afgewezen",
+            "verkeerd_type",
+            f"Je uploadde dit bij '{wanted_label}', maar het lijkt {KIND_LABEL['overig']} "
+            f"({desc}). Wil je het juiste document uploaden?",
+        )
     if slot == "bank" and kind != "bankafschrift":
         # The client meant this as their bank statement; filing it elsewhere would hide that the statement is missing.
-        return result("afgewezen", "verkeerd_type",
-                      f"Je uploadde dit bij '{wanted_label}', maar het is geen bankafschrift ({desc}). "
-                      "Wil je het afschrift als PDF downloaden in je bank-app en dat uploaden?")
+        return result(
+            "afgewezen",
+            "verkeerd_type",
+            f"Je uploadde dit bij '{wanted_label}', maar het is geen bankafschrift ({desc}). "
+            "Wil je het afschrift als PDF downloaden in je bank-app en dat uploaden?",
+        )
 
     right_slot = SLOT_OF_KIND[kind]
     if right_slot != slot:
@@ -280,32 +354,45 @@ def decide(fields, slot, client, q_start=QUARTER_START, q_end=QUARTER_END):
         out["moved"] = True
 
     if kind == "bankafschrift" and not name_matches(who, client):
-        return result("twijfel", "andere_naam",
-                      "Dank je! Een medewerker van het kantoor bekijkt dit afschrift nog even.",
-                      f"Bankafschrift staat op naam van '{who or 'onbekend'}', niet van {client['business']} "
-                      f"of {client['name']}. Privérekening of partner? Graag handmatig beoordelen.")
+        return result(
+            "twijfel",
+            "andere_naam",
+            "Dank je! Een medewerker van het kantoor bekijkt dit afschrift nog even.",
+            f"Bankafschrift staat op naam van '{who or 'onbekend'}', niet van {client['business']} "
+            f"of {client['name']}. Privérekening of partner? Graag handmatig beoordelen.",
+        )
 
     start, end = parse_date(fields.get("datum_van")), parse_date(fields.get("datum_tot"))
     start, end = start or end, end or start
     if not start:
-        return result("twijfel", "periode_onbekend",
-                      "Dank je! Een medewerker van het kantoor bekijkt dit document nog even.",
-                      "De AI kon geen datum of periode vinden. Graag handmatig beoordelen.")
+        return result(
+            "twijfel",
+            "periode_onbekend",
+            "Dank je! Een medewerker van het kantoor bekijkt dit document nog even.",
+            "De AI kon geen datum of periode vinden. Graag handmatig beoordelen.",
+        )
     out["period"] = [start.isoformat(), end.isoformat()]
 
     if end < q_start or start > q_end:
         if kind == "bankafschrift":
-            msg = (f"Dit bankafschrift gaat over {nl(start)} t/m {nl(end)}. Voor de btw-aangifte hebben we het "
-                   f"afschrift over {nl(q_start)} t/m {nl(q_end)} nodig.")
+            msg = (
+                f"Dit bankafschrift gaat over {nl(start)} t/m {nl(end)}. Voor de btw-aangifte hebben we het "
+                f"afschrift over {nl(q_start)} t/m {nl(q_end)} nodig."
+            )
         else:
-            msg = (f"Deze {'factuur' if soort == 'factuur' else 'bon'} is van {nl(start)} en valt dus niet in "
-                   f"dit kwartaal ({nl(q_start)} t/m {nl(q_end)}). Heb je de juiste geüpload?")
+            msg = (
+                f"Deze {'factuur' if soort == 'factuur' else 'bon'} is van {nl(start)} en valt dus niet in "
+                f"dit kwartaal ({nl(q_start)} t/m {nl(q_end)}). Heb je de juiste geüpload?"
+            )
         return result("afgewezen", "verkeerde_periode", msg)
 
     if kind == "bankafschrift" and (start > q_start + timedelta(days=3) or end < q_end - timedelta(days=3)):
-        return result("twijfel", "deel_periode",
-                      "Dank je! Een medewerker van het kantoor bekijkt dit afschrift nog even.",
-                      f"Afschrift dekt {nl(start)} t/m {nl(end)}, niet het hele kwartaal. Mogelijk ontbreken maanden.")
+        return result(
+            "twijfel",
+            "deel_periode",
+            "Dank je! Een medewerker van het kantoor bekijkt dit afschrift nog even.",
+            f"Afschrift dekt {nl(start)} t/m {nl(end)}, niet het hele kwartaal. Mogelijk ontbreken maanden.",
+        )
 
     moved = f" We hebben hem bij '{REQUIRED_ITEMS[right_slot][0]}' gezet." if out.get("moved") else ""
     return result("goedgekeurd", "ok", f"Ontvangen en goedgekeurd: {KIND_LABEL[kind]}.{moved}")
@@ -332,7 +419,9 @@ def check(path, slot, client, model=DEFAULT_MODEL, use_cache=True):
     fields, seconds, cached = read_document(path, model, use_cache)
     if Path(path).suffix.lower() != ".pdf":  # PDFs are digital and sharp; photos get measured
         fields = {**fields, "scherpte": sharpness(path)}
-    herkend = {k: n for k in ("rekeninghouder", "afzender", "geadresseerde") if (n := known_name(fields.get(k), client))}
+    herkend = {
+        k: n for k in ("rekeninghouder", "afzender", "geadresseerde") if (n := known_name(fields.get(k), client))
+    }
     if herkend:
         fields = {**fields, "herkend": herkend}
     decision = decide(fields, slot, client)

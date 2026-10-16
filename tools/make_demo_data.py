@@ -1,6 +1,8 @@
 """Create explicit mock extraction fixtures. No PDFs, real identities, or model calls."""
+
 import json
 from dossier_common import CLIENTS, DEMO_DOCS, MANIFEST
+
 
 def build():
     DEMO_DOCS.mkdir(parents=True, exist_ok=True)
@@ -9,12 +11,18 @@ def build():
         if i == 4:  # no uploads: demonstrates reminders
             continue
         for slot in ("bank", "verkoop", "inkoop"):
-            fields = dict(documentsoort="bankafschrift" if slot == "bank" else "factuur",
-                          leesbaar=True, rekeninghouder=client["business"] if slot == "bank" else "",
-                          afzender={"verkoop": client["business"], "bank": "Demo Bank"}.get(slot, "Demo Supplier"),
-                          geadresseerde=client["business"], datum_van="2026-07-01", datum_tot="2026-09-30",
-                          totaal=None if slot == "bank" else 242.0, btw=None if slot == "bank" else 42.0,
-                          omschrijving="Explicit mock extraction fixture")
+            fields = dict(
+                documentsoort="bankafschrift" if slot == "bank" else "factuur",
+                leesbaar=True,
+                rekeninghouder=client["business"] if slot == "bank" else "",
+                afzender={"verkoop": client["business"], "bank": "Demo Bank"}.get(slot, "Demo Supplier"),
+                geadresseerde=client["business"],
+                datum_van="2026-07-01",
+                datum_tot="2026-09-30",
+                totaal=None if slot == "bank" else 242.0,
+                btw=None if slot == "bank" else 42.0,
+                omschrijving="Explicit mock extraction fixture",
+            )
             first = dict(fields)
             if i == 1 and slot == "bank":
                 first.update(datum_van="2026-04-01", datum_tot="2026-06-30")
@@ -30,5 +38,7 @@ def build():
                 manifest.append({"client": client["id"], "slot": slot, "file": filename, "upload_round": round_no})
     MANIFEST.write_text(json.dumps(manifest, indent=2))
     return len(manifest)
+
+
 if __name__ == "__main__":
     print(f"Created {build()} mock extraction fixtures.")

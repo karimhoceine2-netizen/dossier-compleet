@@ -23,7 +23,7 @@ from pathlib import Path
 import check_document
 import dossier_db as dbx
 from common import http
-from dossier_common import DEMO_DOCS, MANIFEST, QUARTER, REQUIRED_ITEMS, DOSSIER
+from dossier_common import DEMO_DOCS, DOSSIER, MANIFEST, QUARTER, REQUIRED_ITEMS, first_name
 
 WEB = Path(__file__).parent / "dossier_web"
 MAX_UPLOAD = 20 * 1024 * 1024
@@ -52,10 +52,17 @@ def worker():
         except Exception:  # never lose an upload: a failed check goes to a human
             traceback.print_exc()
             try:
-                dbx.apply_check(uid, {"verdict": "twijfel", "reason": "controle_mislukt", "slot": dbx.upload(uid)["slot"],
-                                      "client_msg": "Dank je! Een medewerker van het kantoor bekijkt dit document.",
-                                      "office_msg": "De controle is mislukt. Graag handmatig beoordelen."},
-                                state["base_url"])
+                dbx.apply_check(
+                    uid,
+                    {
+                        "verdict": "twijfel",
+                        "reason": "controle_mislukt",
+                        "slot": dbx.upload(uid)["slot"],
+                        "client_msg": "Dank je! Een medewerker van het kantoor bekijkt dit document.",
+                        "office_msg": "De controle is mislukt. Graag handmatig beoordelen.",
+                    },
+                    state["base_url"],
+                )
             except Exception:  # even the fallback failed: log it, but keep the worker thread alive
                 traceback.print_exc()
         finally:
@@ -65,8 +72,12 @@ def worker():
 
 def warm_up():
     """Load the model into memory, so the first real check is not 20 seconds slower."""
-    http(f"{check_document.OLLAMA}/api/generate", method="POST",
-         data={"model": state["model"], "prompt": "", "keep_alive": "30m"}, timeout=300)
+    http(
+        f"{check_document.OLLAMA}/api/generate",
+        method="POST",
+        data={"model": state["model"], "prompt": "", "keep_alive": "30m"},
+        timeout=300,
+    )
 
 
 def client_view(token):
@@ -76,13 +87,34 @@ def client_view(token):
     c = dbx.client(r["client_id"])
     slots = []
     for slot, s in dbx.slot_states(r["id"]).items():
-        slots.append({"slot": slot, "label": s["label"].split(" (")[0], "period": "1 juli t/m 30 september 2026",
-                      "hint": HINTS[slot], "status": s["status"],
-                      "uploads": [{"filename": u["filename"], "status": u["status"], "message": u["client_msg"] or "",
-                                   "read": dbx.reading(u)} for u in s["uploads"]]})
-    return {"first_name": c["name"].split()[0], "business": c["business"], "office": dbx.OFFICE_NAME,
-            "quarter": QUARTER, "deadline": "31 oktober 2026", "today": dbx.now().date().isoformat(),
-            "complete": bool(r["completed_at"]), "slots": slots}
+        slots.append(
+            {
+                "slot": slot,
+                "label": s["label"].split(" (")[0],
+                "period": "1 juli t/m 30 september 2026",
+                "hint": HINTS[slot],
+                "status": s["status"],
+                "uploads": [
+                    {
+                        "filename": u["filename"],
+                        "status": u["status"],
+                        "message": u["client_msg"] or "",
+                        "read": dbx.reading(u),
+                    }
+                    for u in s["uploads"]
+                ],
+            }
+        )
+    return {
+        "first_name": first_name(c),
+        "business": c["business"],
+        "office": dbx.OFFICE_NAME,
+        "quarter": QUARTER,
+        "deadline": "31 oktober 2026",
+        "today": dbx.now().date().isoformat(),
+        "complete": bool(r["completed_at"]),
+        "slots": slots,
+    }
 
 
 def demo_uploads(round_no):
@@ -139,10 +171,21 @@ class Handler(BaseHTTPRequestHandler):
             rows = []
             for file in sorted(outbox.glob("*.eml"), key=lambda f: f.stat().st_mtime, reverse=True):
                 message = BytesParser(policy=policy.default).parsebytes(file.read_bytes())
-                rows.append(f'<li><a href="/outbox/{file.stem}">{html.escape(str(message["Subject"]))}</a><p>{html.escape(str(message["To"]))}</p></li>')
-            page = '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lokale demo-mailbox</title><link rel="stylesheet" href="/static/style.css"><main style="max-width:760px;margin:40px auto;padding:24px"><a href="/kantoor">← Dashboard</a><h1>Lokale demo-mailbox</h1><p>Geen berichten verzonden. Alle adressen zijn fictief.</p><ul style="display:grid;gap:24px">' + ''.join(rows) + '</ul></main></html>'
+                rows.append(
+                    f'<li><a href="/outbox/{file.stem}">{html.escape(str(message["Subject"]))}</a><p>{html.escape(str(message["To"]))}</p></li>'
+                )
+            page = (
+                '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lokale demo-mailbox</title><link rel="stylesheet" href="/static/style.css"><main style="max-width:760px;margin:40px auto;padding:24px"><a href="/kantoor">← Dashboard</a><h1>Lokale demo-mailbox</h1><p>Geen berichten verzonden. Alle adressen zijn fictief.</p><ul style="display:grid;gap:24px">'
+                + "".join(rows)
+                + "</ul></main></html>"
+            )
             return self.send(200, page, "text/html; charset=utf-8")
-        if len(parts) == 2 and parts[0] == "outbox" and len(parts[1]) == 24 and all(c in "0123456789abcdef" for c in parts[1]):
+        if (
+            len(parts) == 2
+            and parts[0] == "outbox"
+            and len(parts[1]) == 24
+            and all(c in "0123456789abcdef" for c in parts[1])
+        ):
             file = DOSSIER / "outbox" / (parts[1] + ".eml")
             if not file.is_file():
                 return self.send(404, {"error": "not found"})
@@ -156,13 +199,23 @@ class Handler(BaseHTTPRequestHandler):
             w = csv.DictWriter(buf, fieldnames=list(rows[0]) if rows else ["klant"], delimiter=";")
             w.writeheader()
             w.writerows(rows)
-            return self.send(200, "﻿" + buf.getvalue(), "text/csv; charset=utf-8",
-                             {"Content-Disposition": f"attachment; filename=dossier-{QUARTER}.csv"})
+            return self.send(
+                200,
+                "﻿" + buf.getvalue(),
+                "text/csv; charset=utf-8",
+                {"Content-Disposition": f"attachment; filename=dossier-{QUARTER}.csv"},
+            )
         if parts[0] == "static" and len(parts) == 2 and (WEB / parts[1]).is_file():
-            ctype = {".css": "text/css; charset=utf-8", ".woff2": "font/woff2"}.get(Path(parts[1]).suffix, "text/plain; charset=utf-8")
+            ctype = {".css": "text/css; charset=utf-8", ".woff2": "font/woff2"}.get(
+                Path(parts[1]).suffix, "text/plain; charset=utf-8"
+            )
             return self.send(200, (WEB / parts[1]).read_bytes(), ctype)
         if parts[0] == "u" and len(parts) == 2:
-            return self.page("portaal.html") if dbx.request_by_token(parts[1]) else self.send(404, "Onbekende link", "text/plain")
+            return (
+                self.page("portaal.html")
+                if dbx.request_by_token(parts[1])
+                else self.send(404, "Onbekende link", "text/plain")
+            )
         if url.path == "/api/dashboard":
             d = dbx.dashboard()
             d.update(model=state["model"], queue=jobs.qsize() + (1 if state["busy"] else 0))

@@ -44,8 +44,10 @@ def db():
         _conn.row_factory = sqlite3.Row
         _conn.executescript(SCHEMA)
         if not _conn.execute("SELECT 1 FROM clients").fetchone():
-            _conn.executemany("INSERT INTO clients VALUES (?,?,?,?,?,?)",
-                              [(c["id"], c["name"], c["business"], c["email"], c["address"], c["story"]) for c in CLIENTS])
+            _conn.executemany(
+                "INSERT INTO clients VALUES (?,?,?,?,?,?)",
+                [(c["id"], c["name"], c["business"], c["email"], c["address"], c["story"]) for c in CLIENTS],
+            )
             _conn.commit()
     return _conn
 
@@ -64,6 +66,7 @@ def x(sql, *args):
 
 # ---------- clock ----------
 
+
 def clock_days():
     rows = q("SELECT value FROM settings WHERE key='clock_days'")
     return int(rows[0]["value"]) if rows else 0
@@ -78,6 +81,7 @@ def iso():
 
 
 # ---------- setup ----------
+
 
 def reset():
     """Wipe all demo state and seed the fictional clients."""
@@ -102,7 +106,14 @@ def event(request_id, kind, detail):
 
 
 def mail(request_id, kind, to, subject):
-    x("INSERT INTO mails (request_id, at, kind, to_addr, subject) VALUES (?,?,?,?,?)", request_id, iso(), kind, to, subject)
+    x(
+        "INSERT INTO mails (request_id, at, kind, to_addr, subject) VALUES (?,?,?,?,?)",
+        request_id,
+        iso(),
+        kind,
+        to,
+        subject,
+    )
 
 
 def portal_link(base_url, token):
@@ -110,6 +121,7 @@ def portal_link(base_url, token):
 
 
 # ---------- workflow ----------
+
 
 def start_quarter(base_url):
     """Create a request per client for this quarter and mail them their personal upload link."""
@@ -119,7 +131,9 @@ def start_quarter(base_url):
         if q("SELECT 1 FROM requests WHERE client_id=? AND quarter=?", c["id"], QUARTER):
             continue
         token = secrets.token_urlsafe(9)
-        rid = x("INSERT INTO requests (client_id, quarter, token, sent_at) VALUES (?,?,?,?)", c["id"], QUARTER, token, iso())
+        rid = x(
+            "INSERT INTO requests (client_id, quarter, token, sent_at) VALUES (?,?,?,?)", c["id"], QUARTER, token, iso()
+        )
         subject = send_mail.request_mail(c, portal_link(base_url, token), labels)
         mail(rid, "verzoek", c["email"], subject)
         event(rid, "verzoek", f"Uitvraag Q3 gemaild naar {c['business']}")
@@ -155,15 +169,24 @@ def slot_states(request_id):
 
 def add_upload(request, slot, filename, data):
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", filename)[-80:] or "document"
-    uid = x("INSERT INTO uploads (request_id, slot, original_slot, filename, uploaded_at, status) VALUES (?,?,?,?,?,?)",
-            request["id"], slot, slot, filename, iso(), "controleren")
+    uid = x(
+        "INSERT INTO uploads (request_id, slot, original_slot, filename, uploaded_at, status) VALUES (?,?,?,?,?,?)",
+        request["id"],
+        slot,
+        slot,
+        filename,
+        iso(),
+        "controleren",
+    )
     folder = UPLOADS / str(request["id"])
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{uid}_{safe}"
     path.write_bytes(data)
     x("UPDATE uploads SET path=? WHERE id=?", str(path), uid)
     c = client(request["client_id"])
-    event(request["id"], "upload", f"{c['business']} uploadde '{filename}' bij {REQUIRED_ITEMS[slot][0].split(' (')[0]}")
+    event(
+        request["id"], "upload", f"{c['business']} uploadde '{filename}' bij {REQUIRED_ITEMS[slot][0].split(' (')[0]}"
+    )
     return uid
 
 
@@ -180,13 +203,27 @@ def apply_check(uid, result, base_url):
     u = upload(uid)
     r = request_of(u)
     c = client(r["client_id"])
-    x("""UPDATE uploads SET slot=?, status=?, reason=?, client_msg=?, office_msg=?, fields=?, model=?, seconds=?, decided_by=?
-         WHERE id=?""", result["slot"], result["verdict"], result["reason"], result["client_msg"], result["office_msg"],
-      json.dumps(result.get("fields", {}), ensure_ascii=False), result.get("model"), result.get("seconds"),
-      "demo-regels" if result.get("model") == "demo" else "AI", uid)
+    x(
+        """UPDATE uploads SET slot=?, status=?, reason=?, client_msg=?, office_msg=?, fields=?, model=?, seconds=?, decided_by=?
+         WHERE id=?""",
+        result["slot"],
+        result["verdict"],
+        result["reason"],
+        result["client_msg"],
+        result["office_msg"],
+        json.dumps(result.get("fields", {}), ensure_ascii=False),
+        result.get("model"),
+        result.get("seconds"),
+        "demo-regels" if result.get("model") == "demo" else "AI",
+        uid,
+    )
     secs = f" ({result.get('seconds')} s)" if result.get("seconds") else ""
     words = {"goedgekeurd": "keurde goed", "afgewezen": "wees af", "twijfel": "twijfelt over"}[result["verdict"]]
-    event(r["id"], "ai_" + result["verdict"], f"{'Demo-regels' if result.get('model') == 'demo' else 'AI'} {words}: '{u['filename']}' van {c['business']}{secs}")
+    event(
+        r["id"],
+        "ai_" + result["verdict"],
+        f"{'Demo-regels' if result.get('model') == 'demo' else 'AI'} {words}: '{u['filename']}' van {c['business']}{secs}",
+    )
 
     link = portal_link(base_url, r["token"])
     if result["verdict"] == "afgewezen":
@@ -203,11 +240,17 @@ def review(uid, decision, base_url, note=""):
     u = upload(uid)
     r = request_of(u)
     c = client(r["client_id"])
-    msg = note or ("Goedgekeurd door een medewerker." if decision == "goedgekeurd"
-                   else "Een medewerker heeft dit document bekeken en kan het niet gebruiken. Wil je het juiste document uploaden?")
+    msg = note or (
+        "Goedgekeurd door een medewerker."
+        if decision == "goedgekeurd"
+        else "Een medewerker heeft dit document bekeken en kan het niet gebruiken. Wil je het juiste document uploaden?"
+    )
     x("UPDATE uploads SET status=?, client_msg=?, decided_by='kantoor' WHERE id=?", decision, msg, uid)
-    event(r["id"], "kantoor_" + decision, f"Kantoor {'keurde goed' if decision == 'goedgekeurd' else 'wees af'}: "
-                                          f"'{u['filename']}' van {c['business']}")
+    event(
+        r["id"],
+        "kantoor_" + decision,
+        f"Kantoor {'keurde goed' if decision == 'goedgekeurd' else 'wees af'}: '{u['filename']}' van {c['business']}",
+    )
     if decision == "afgewezen":
         subject = send_mail.rejected_mail(c, portal_link(base_url, r["token"]), REQUIRED_ITEMS[u["slot"]][0], msg)
         mail(r["id"], "afwijzing", c["email"], subject)
@@ -252,13 +295,16 @@ def run_reminders(base_url):
 
 
 def advance_clock(days, base_url):
-    x("INSERT INTO settings VALUES ('clock_days', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-      str(clock_days() + days))
+    x(
+        "INSERT INTO settings VALUES ('clock_days', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        str(clock_days() + days),
+    )
     event(None, "klok", f"Demo: {days} dagen vooruit naar {now():%d-%m-%Y}")
     return run_reminders(base_url)
 
 
 # ---------- reporting ----------
+
 
 def named(f):
     """Name lookup on what the AI read: the client's own spelling where the name belongs to the client
@@ -275,11 +321,16 @@ def reading(u):
     start, end = start or end, end or start
     soort = {"bankafschrift": "Bankafschrift", "factuur": "Factuur", "kassabon": "Kassabon", "overig": "Ander document"}
     name = named(f)
-    return {"soort": soort.get(f.get("documentsoort"), "Document"),
-            "naam": name("rekeninghouder") or name("afzender"),
-            "aan": name("geadresseerde"),
-            "van": start.isoformat() if start else None, "tot": end.isoformat() if end else None,
-            "totaal": f.get("totaal"), "btw": f.get("btw"), "scherpte": f.get("scherpte")}
+    return {
+        "soort": soort.get(f.get("documentsoort"), "Document"),
+        "naam": name("rekeninghouder") or name("afzender"),
+        "aan": name("geadresseerde"),
+        "van": start.isoformat() if start else None,
+        "tot": end.isoformat() if end else None,
+        "totaal": f.get("totaal"),
+        "btw": f.get("btw"),
+        "scherpte": f.get("scherpte"),
+    }
 
 
 def csv_safe(value):
@@ -292,6 +343,7 @@ def export_rows():
     rows = q("""SELECT c.business, u.slot, u.filename, u.fields, u.decided_by FROM uploads u
                 JOIN requests r ON r.id=u.request_id JOIN clients c ON c.id=r.client_id
                 WHERE u.status='goedgekeurd' ORDER BY c.business, u.slot""")
+
     def money(v):  # Dutch Excel: comma as decimal separator (the CSV uses ';' between columns)
         return f"{v:.2f}".replace(".", ",") if isinstance(v, (int, float)) else ""
 
@@ -301,12 +353,21 @@ def export_rows():
         start, end = parse_date(f.get("datum_van")), parse_date(f.get("datum_tot"))
         start, end = start or end, end or start
         bank, name = r["slot"] == "bank", named(f)
-        out.append({"klant": r["business"], "soort": REQUIRED_ITEMS[r["slot"]][0].split(" (")[0].replace(" Q3 2026", ""),
-                    "bestand": r["filename"], "van": name("afzender"),
-                    "aan": name("rekeninghouder") if bank else name("geadresseerde"),
-                    "datum": f"{start:%d-%m-%Y} t/m {end:%d-%m-%Y}" if bank and start else (f"{start:%d-%m-%Y}" if start else ""),
-                    "totaal_incl_btw": "" if bank else money(f.get("totaal")), "btw": "" if bank else money(f.get("btw")),
-                    "gecontroleerd_door": r["decided_by"]})
+        out.append(
+            {
+                "klant": r["business"],
+                "soort": REQUIRED_ITEMS[r["slot"]][0].split(" (")[0].replace(" Q3 2026", ""),
+                "bestand": r["filename"],
+                "van": name("afzender"),
+                "aan": name("rekeninghouder") if bank else name("geadresseerde"),
+                "datum": f"{start:%d-%m-%Y} t/m {end:%d-%m-%Y}"
+                if bank and start
+                else (f"{start:%d-%m-%Y}" if start else ""),
+                "totaal_incl_btw": "" if bank else money(f.get("totaal")),
+                "btw": "" if bank else money(f.get("btw")),
+                "gecontroleerd_door": r["decided_by"],
+            }
+        )
     # Text cells can contain client-controlled text (file names, names read from a document).
     amounts = ("totaal_incl_btw", "btw")
     return [{key: value if key in amounts else csv_safe(value) for key, value in row.items()} for row in out]
@@ -323,11 +384,27 @@ def dashboard():
             for s in states.values():
                 for u in s["uploads"]:
                     if u["status"] == "twijfel":
-                        review.append({"upload_id": u["id"], "business": c["business"], "name": c["name"],
-                                       "filename": u["filename"], "slot_label": s["label"], "office_msg": u["office_msg"],
-                                       "read": reading(u)})
-                s["uploads"] = [{**{k: u[k] for k in ("id", "filename", "status", "reason", "decided_by", "seconds", "client_msg")},
-                                 "read": reading(u)} for u in s["uploads"]]
+                        review.append(
+                            {
+                                "upload_id": u["id"],
+                                "business": c["business"],
+                                "name": c["name"],
+                                "filename": u["filename"],
+                                "slot_label": s["label"],
+                                "office_msg": u["office_msg"],
+                                "read": reading(u),
+                            }
+                        )
+                s["uploads"] = [
+                    {
+                        **{
+                            k: u[k]
+                            for k in ("id", "filename", "status", "reason", "decided_by", "seconds", "client_msg")
+                        },
+                        "read": reading(u),
+                    }
+                    for u in s["uploads"]
+                ]
             if r["completed_at"]:
                 status = "compleet"
             elif any(s["status"] == "twijfel" for s in states.values()):
@@ -339,15 +416,34 @@ def dashboard():
             else:
                 status = "wacht"
             days = (now() - datetime.fromisoformat(r["sent_at"])).days
-            entry["request"] = {"token": r["token"], "days_open": days, "reminders": r["reminders"], "sent_at": r["sent_at"],
-                                "status": status, "slots": states, "completed_at": r["completed_at"]}
+            entry["request"] = {
+                "token": r["token"],
+                "days_open": days,
+                "reminders": r["reminders"],
+                "sent_at": r["sent_at"],
+                "status": status,
+                "slots": states,
+                "completed_at": r["completed_at"],
+            }
         clients.append(entry)
     events = q("SELECT at, kind, detail FROM events ORDER BY id DESC LIMIT 40")
     statuses = [c["request"]["status"] for c in clients if c["request"]]
-    return {"office": OFFICE_NAME, "quarter": QUARTER, "today": now().date().isoformat(), "clock_days": clock_days(),
-            "started": bool(reqs), "clients": clients, "review": review, "events": events,
-            "kpi": {"compleet": statuses.count("compleet"), "totaal": len(clients),
-                    "wacht": statuses.count("wacht") + statuses.count("controleren"),
-                    "beoordelen": len(review), "bellen": statuses.count("bellen"),
-                    "mails": q("SELECT COUNT(*) n FROM mails")[0]["n"]},
-            "demo": True}
+    return {
+        "office": OFFICE_NAME,
+        "quarter": QUARTER,
+        "today": now().date().isoformat(),
+        "clock_days": clock_days(),
+        "started": bool(reqs),
+        "clients": clients,
+        "review": review,
+        "events": events,
+        "kpi": {
+            "compleet": statuses.count("compleet"),
+            "totaal": len(clients),
+            "wacht": statuses.count("wacht") + statuses.count("controleren"),
+            "beoordelen": len(review),
+            "bellen": statuses.count("bellen"),
+            "mails": q("SELECT COUNT(*) n FROM mails")[0]["n"],
+        },
+        "demo": True,
+    }
