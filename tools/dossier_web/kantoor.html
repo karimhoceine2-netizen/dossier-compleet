@@ -33,7 +33,7 @@
   .status p b { color: var(--ink); }
 
   /* the quarter as a line from request to deadline */
-  .tl { position: relative; margin: 34px 8px 0; height: 64px; }
+  .tl { position: relative; margin: 34px 32px 0; height: 64px; }
   .tl__base, .tl__done { position: absolute; left: 0; top: 30px; height: 2px; background: #D5D8DC; border-radius: 2px; }
   .tl__base { right: 0; }
   .tl__done { background: var(--ink); transition: width 0.6s var(--ease); }
@@ -231,8 +231,9 @@ function timeline(d) {
   const pos = (t) => Math.max(0, Math.min(100, ((t - start) / span) * 100));
   const ticks = [3, 7, 14].map((n, i) => {
     const t = new Date(start); t.setDate(t.getDate() + n);
-    return `<i class="tl__tick${sent && today >= t ? " past" : ""}" style="left:${pos(t)}%"></i>
-      <span class="tl__lbl mid" style="left:${pos(t)}%">Herinnering ${i + 1}<span class="mono">${day(t)}</span></span>`;
+    // The third reminder can fall a day or two before the deadline: keep its tick, drop the label that would overlap.
+    const label = pos(t) < 90 ? `<span class="tl__lbl mid" style="left:${pos(t)}%">Herinnering ${i + 1}<span class="mono">${day(t)}</span></span>` : "";
+    return `<i class="tl__tick${sent && today >= t ? " past" : ""}" style="left:${pos(t)}%"></i>${label}`;
   }).join("");
   return `<span class="tl__base"></span><span class="tl__done" style="width:${sent ? pos(today) : 0}%"></span>${ticks}
     <span class="tl__lbl first" style="left:0">${sent ? "Uitvraag" : "Nog niet verstuurd"}<span class="mono">${day(start)}</span></span>

@@ -68,7 +68,7 @@ python3 tools/test_dossier_rules.py
 python3 tools/test_workflow.py
 ```
 
-Verified during preparation: **19 decision-rule scenarios and 4 workflow integration tests passed** on Python 3.14.7, including a re-run from a clean copy of this repository. Browser checks covered the dashboard, reminders, corrected mock uploads and the client portal. Desktop and 390px mobile layouts were inspected.
+Verified during preparation: **19 decision-rule scenarios and 5 workflow integration tests passed** on Python 3.14.7, including a re-run from a clean copy of this repository. Browser checks covered the dashboard, reminders, corrected mock uploads and the client portal. Desktop and 390px mobile layouts were inspected.
 
 The optional model path has **not** been exercised in this preparation. It needs an already installed Ollama vision model and macOS tools (`swiftc`/PDFKit and `sips`). Installations are not performed by the demo launcher. Its current PDF sampling and extraction behavior need further evaluation.
 
@@ -87,10 +87,11 @@ I built this together with an AI coding assistant. I decided what the workflow s
 - Use a human review state when a name, period or reading is uncertain.
 - Make fixture extraction and real model extraction visibly different.
 - Test mock identities too: shared words in names can weaken fuzzy matching.
+- Treat every client-supplied string as untrusted, including file names: the CSV export neutralises spreadsheet formulas.
 
 ## What I would improve next
 
-Add authenticated office access, safer concurrent state changes, upload format validation, structured model-output validation, and cross-platform PDF handling. Evaluate extraction on a properly sourced synthetic dataset before making accuracy claims.
+Add authenticated office access (today the dashboard and the uploaded files are open to anyone who can reach the loopback port), safer concurrent state changes, upload format validation, structured model-output validation, and cross-platform PDF handling. Evaluate extraction on a properly sourced synthetic dataset before making accuracy claims.
 
 This is a loopback-only learning demo, not a deployed accounting service. No client use, time savings, model accuracy or business results are claimed. The snapshots show synthetic scenario states.
 

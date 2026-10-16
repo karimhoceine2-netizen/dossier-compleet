@@ -1,7 +1,6 @@
 """HTML mail templates saved locally as .eml. This showcase has no mail-sending transport."""
 
 import html
-import os
 import secrets
 from dossier_common import DOSSIER
 from email.message import EmailMessage

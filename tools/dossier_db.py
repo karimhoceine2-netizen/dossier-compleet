@@ -282,6 +282,12 @@ def reading(u):
             "totaal": f.get("totaal"), "btw": f.get("btw"), "scherpte": f.get("scherpte")}
 
 
+def csv_safe(value):
+    """Text that starts with = + - @ (or a tab/CR) is run as a formula by Excel; prefix it so it stays text."""
+    text = str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
 def export_rows():
     rows = q("""SELECT c.business, u.slot, u.filename, u.fields, u.decided_by FROM uploads u
                 JOIN requests r ON r.id=u.request_id JOIN clients c ON c.id=r.client_id
@@ -301,7 +307,9 @@ def export_rows():
                     "datum": f"{start:%d-%m-%Y} t/m {end:%d-%m-%Y}" if bank and start else (f"{start:%d-%m-%Y}" if start else ""),
                     "totaal_incl_btw": "" if bank else money(f.get("totaal")), "btw": "" if bank else money(f.get("btw")),
                     "gecontroleerd_door": r["decided_by"]})
-    return out
+    # Text cells can contain client-controlled text (file names, names read from a document).
+    amounts = ("totaal_incl_btw", "btw")
+    return [{key: value if key in amounts else csv_safe(value) for key, value in row.items()} for row in out]
 
 
 def dashboard():
@@ -312,7 +320,7 @@ def dashboard():
         entry = {"id": c["id"], "name": c["name"], "business": c["business"], "story": c["story"], "request": None}
         if r:
             states = slot_states(r["id"])
-            for slot, s in states.items():
+            for s in states.values():
                 for u in s["uploads"]:
                     if u["status"] == "twijfel":
                         review.append({"upload_id": u["id"], "business": c["business"], "name": c["name"],

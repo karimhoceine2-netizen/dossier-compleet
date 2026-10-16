@@ -55,6 +55,17 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(len(db.q("SELECT * FROM mails")), count)
         db.advance_clock(11, "http://127.0.0.1:8787")
         self.assertEqual(db.q("SELECT call_needed FROM requests WHERE client_id='demo-05'")[0]["call_needed"], 1)
+    def test_export_neutralizes_spreadsheet_formulas(self):
+        client = next(c for c in CLIENTS if c["id"] == "demo-01")
+        request = db.q("SELECT * FROM requests WHERE client_id='demo-01'")[0]
+        fields = dict(documentsoort="bankafschrift", leesbaar=True, rekeninghouder=client["business"], afzender="Demo Bank",
+                      geadresseerde=client["business"], datum_van="2026-07-01", datum_tot="2026-09-30", totaal=None, btw=None,
+                      omschrijving="Mock fixture")
+        uid = db.add_upload(request, "bank", '=HYPERLINK("http://example.invalid")', json.dumps({"demo_fixture": True, "fields": fields}).encode())
+        db.apply_check(uid, check_document.check(db.upload(uid)["path"], "bank", client, model="demo"), "http://127.0.0.1:8787")
+        row = db.export_rows()[0]
+        self.assertTrue(row["bestand"].startswith("'="))
+        self.assertEqual(db.csv_safe("12,50"), "12,50")
     def test_unmarked_json_is_rejected(self):
         p = Path(self.scratch.name) / "unmarked.json"
         p.write_text('{"fields": {}}')

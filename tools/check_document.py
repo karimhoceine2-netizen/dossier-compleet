@@ -254,7 +254,6 @@ def decide(fields, slot, client, q_start=QUARTER_START, q_end=QUARTER_END):
         elif name_matches(fields.get("geadresseerde"), client):
             kind, who = "inkoopfactuur", fields.get("geadresseerde")
         else:
-            kind, who = ("inkoopfactuur" if slot == "inkoop" else "verkoopfactuur"), None
             return result("twijfel", "andere_naam",
                           "Dank je! Een medewerker van het kantoor bekijkt dit document nog even.",
                           f"Factuur van '{fields.get('afzender')}' aan '{fields.get('geadresseerde')}': geen van beide "

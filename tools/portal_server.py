@@ -49,12 +49,15 @@ def worker():
             if result["cached"]:
                 time.sleep(1.5)  # a reading from the cache returns instantly; keep the "checking" moment visible
             dbx.apply_check(uid, result, state["base_url"])
-        except Exception as e:  # never lose an upload: a failed check goes to a human
+        except Exception:  # never lose an upload: a failed check goes to a human
             traceback.print_exc()
-            dbx.apply_check(uid, {"verdict": "twijfel", "reason": "controle_mislukt", "slot": dbx.upload(uid)["slot"],
-                                  "client_msg": "Dank je! Een medewerker van het kantoor bekijkt dit document.",
-                                  "office_msg": "De controle is mislukt. Graag handmatig beoordelen."},
-                            state["base_url"])
+            try:
+                dbx.apply_check(uid, {"verdict": "twijfel", "reason": "controle_mislukt", "slot": dbx.upload(uid)["slot"],
+                                      "client_msg": "Dank je! Een medewerker van het kantoor bekijkt dit document.",
+                                      "office_msg": "De controle is mislukt. Graag handmatig beoordelen."},
+                                state["base_url"])
+            except Exception:  # even the fallback failed: log it, but keep the worker thread alive
+                traceback.print_exc()
         finally:
             state["busy"] = None
             jobs.task_done()
@@ -168,8 +171,10 @@ class Handler(BaseHTTPRequestHandler):
             view = client_view(parts[2])
             return self.send(200, view) if view else self.send(404, {"error": "onbekend"})
         if parts[0] == "files" and len(parts) == 2 and parts[1].isdigit():
-            u = dbx.upload(int(parts[1]))
-            p = Path(u["path"])
+            found = dbx.q("SELECT path FROM uploads WHERE id=?", int(parts[1]))
+            p = Path(found[0]["path"]).resolve() if found and found[0]["path"] else None
+            if p is None or not p.is_file() or dbx.UPLOADS.resolve() not in p.parents:
+                return self.send(404, {"error": "niet gevonden"})
             ctype = {".pdf": "application/pdf", ".json": "application/json"}.get(p.suffix.lower(), "image/jpeg")
             return self.send(200, p.read_bytes(), ctype)
         self.send(404, {"error": "niet gevonden"})

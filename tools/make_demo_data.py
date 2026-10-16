@@ -11,7 +11,7 @@ def build():
         for slot in ("bank", "verkoop", "inkoop"):
             fields = dict(documentsoort="bankafschrift" if slot == "bank" else "factuur",
                           leesbaar=True, rekeninghouder=client["business"] if slot == "bank" else "",
-                          afzender=client["business"] if slot == "verkoop" else "Demo Supplier",
+                          afzender={"verkoop": client["business"], "bank": "Demo Bank"}.get(slot, "Demo Supplier"),
                           geadresseerde=client["business"], datum_van="2026-07-01", datum_tot="2026-09-30",
                           totaal=None if slot == "bank" else 242.0, btw=None if slot == "bank" else 42.0,
                           omschrijving="Explicit mock extraction fixture")

@@ -132,7 +132,7 @@ function render(d) {
   document.getElementById("lead").textContent = d.complete
     ? "Je hoeft niets meer te doen. We laten het je weten als de aangifte is ingediend."
     : `Voor de btw-aangifte van ${d.business} over juli, augustus en september. Na het uploaden zie je meteen of het klopt.`;
-  document.getElementById("due").innerHTML = `Uiterlijk <b>31-10-2026</b>, ${days > 0 ? `nog ${days} dagen` : "vandaag"}`;
+  document.getElementById("due").innerHTML = `Uiterlijk <b>31-10-2026</b>, ${days > 1 ? `nog ${days} dagen` : days === 1 ? "nog 1 dag" : days === 0 ? "vandaag" : "de deadline is verstreken"}`;
   document.getElementById("done").innerHTML = d.complete
     ? `<div class="done">${markFor("goedgekeurd")}<p><b>Je dossier is compleet.</b>Bedankt voor het aanleveren.</p></div>` : "";
   document.getElementById("track").innerHTML = d.slots.map((s) => `<li class="${s.status}"><i></i>${SHORT[s.slot]}</li>`).join("");
