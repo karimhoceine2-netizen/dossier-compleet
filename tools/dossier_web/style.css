@@ -1,0 +1,82 @@
+/* Dossier Compleet: shared tokens for the client portal and the office dashboard.
+   The idea: a dossier is a checklist on paper. Status is shown as a ticked box, data that the
+   AI read is set in monospace like a printed statement, and colour only means something. */
+
+/* Atkinson Hyperlegible (Braille Institute): drawn so 0/O, 1/l/I and 5/S never get confused, which is what you want
+   for amounts, dates and account numbers, read on a phone by clients of every age. SIL OFL 1.1, see atkinson-OFL.txt. */
+@font-face { font-family: "Atkinson Next"; src: url("/static/atkinson-next.woff2") format("woff2"); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: "Atkinson Mono"; src: url("/static/atkinson-mono.woff2") format("woff2"); font-weight: 200 800; font-display: swap; }
+
+:root {
+  --paper: #FFFFFF;
+  --desk: #F1F2F4;      /* the surface the paper lies on */
+  --ink: #15181D;
+  --graphite: #5C626C;  /* secondary text, 6.2:1 on white */
+  --pencil: #9AA0A9;    /* hints and empty boxes, large or decorative only */
+  --rule: #E3E5E8;
+  --petrol: #0E5A63;    /* goedgekeurd */
+  --petrol-wash: #E5F0F0;
+  --carmine: #B3263A;   /* afgewezen, bellen */
+  --carmine-wash: #FBECEE;
+  --ochre: #8F5D00;     /* twijfel: een mens beslist */
+  --ochre-wash: #FBF2E1;
+  --indigo: #3247A0;    /* wordt gelezen */
+  --indigo-wash: #ECEFF9;
+
+  --sans: "Atkinson Next", "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "Atkinson Mono", ui-monospace, Menlo, Consolas, monospace;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--desk); color: var(--ink); font: 400 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { font-weight: 700; letter-spacing: -0.015em; line-height: 1.15; }
+a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.mono { font-family: var(--mono); font-size: 0.9em; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.muted { color: var(--graphite); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+
+/* buttons: ink is the only "primary" colour; petrol is reserved for approval */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 40px; padding: 0 16px;
+       border-radius: 8px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); font-weight: 550;
+       font-size: 14px; text-decoration: none; white-space: nowrap; transition: transform 0.15s var(--ease), background 0.15s; }
+.btn:hover { background: #2A2F37; }
+.btn:active { transform: scale(0.98); }
+.btn--line { background: transparent; color: var(--ink); border-color: #CFD3D8; }
+.btn--line:hover { background: var(--desk); border-color: var(--pencil); }
+.btn--danger { background: transparent; color: var(--carmine); border-color: #E7B9C1; }
+.btn--danger:hover { background: var(--carmine-wash); }
+.btn[disabled] { opacity: 0.4; cursor: default; }
+
+/* the tick box: one shape, five states */
+.mark { width: 20px; height: 20px; flex: none; display: inline-grid; place-items: center; border-radius: 5px;
+        border: 1.5px solid var(--pencil); background: var(--paper); color: var(--paper); }
+.mark svg { width: 13px; height: 13px; }
+.mark.goedgekeurd { background: var(--petrol); border-color: var(--petrol); }
+.mark.afgewezen { border-color: var(--carmine); color: var(--carmine); background: var(--carmine-wash); }
+.mark.twijfel { background: var(--ochre); border-color: var(--ochre); font: 700 12px/1 var(--sans); }
+.mark.controleren { border-style: dashed; border-color: var(--indigo); }
+.mark.controleren::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--indigo); animation: pulse 1.1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.15; transform: scale(0.6); } }
+
+/* "being read": a thin line that sweeps, like a scanner */
+.scan { position: relative; height: 2px; background: var(--indigo-wash); border-radius: 2px; overflow: hidden; }
+.scan::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 35%; background: var(--indigo); border-radius: 2px; animation: sweep 1.3s var(--ease) infinite; }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mark.controleren::after, .scan::after { animation: none; }
+  .btn { transition: none; }
+}
+
+/* Showcase clarity and responsive controls. */
+.demo-notice{margin:0 0 18px;padding:11px 14px;border:1px solid #b9cbd0;border-radius:8px;background:#eaf3f4;color:#244d54;font-size:13px;line-height:1.5}
+.present .btn,.btn{min-height:44px!important}
+button:focus-visible,a:focus-visible,tr:focus-visible{outline:2px solid var(--petrol);outline-offset:3px}
+@media(max-width:600px){.top{align-items:flex-start;flex-wrap:wrap}.meta{font-size:12px}.brand{gap:8px}.present{gap:8px}.present__label{width:100%;border:0!important}.who{overflow-wrap:anywhere}.sum{line-height:1.6}.tl{margin-left:0;margin-right:0}table{table-layout:fixed}th:first-child{width:64%}.panel__head{flex-wrap:wrap}.panel__head .btn{font-size:12px}.read{grid-template-columns:minmax(0,auto) minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

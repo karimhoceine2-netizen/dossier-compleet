@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dossier Compleet · Voorbeeld Administratie</title>
+<link rel="preload" href="/static/atkinson-next.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 28px 56px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 0; }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .office { font-weight: 700; font-size: 16px; }
+  .product { color: var(--graphite); font-size: 14px; padding-left: 14px; border-left: 1px solid #CFD3D8; }
+  .meta { display: flex; gap: 18px; align-items: center; font-size: 13px; color: var(--graphite); }
+  .ai { display: inline-flex; align-items: center; gap: 7px; }
+  .ai i { width: 7px; height: 7px; border-radius: 50%; background: var(--petrol); box-shadow: 0 0 0 3px var(--petrol-wash); }
+
+  .present { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 10px;
+             background: var(--paper); border: 1px solid var(--rule); }
+  .present__label { font-size: 13px; color: var(--graphite); margin-right: 6px; padding-right: 14px; border-right: 1px solid var(--rule); }
+  .present .btn { min-height: 34px; padding: 0 12px; font-size: 13.5px; }
+  .present .step { font-family: var(--mono); font-size: 12px; opacity: 0.7; }
+  .present .spacer { flex: 1; }
+  .clean .present { display: none; }
+  .busy { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--indigo); }
+  .busy .scan { width: 56px; }
+
+  /* the status line: one sentence instead of a row of number cards */
+  .status { padding: 44px 0 30px; }
+  .status h1 { font-size: clamp(30px, 3.6vw, 46px); letter-spacing: -0.025em; }
+  .status p { margin-top: 10px; font-size: 17px; color: var(--graphite); }
+  .status p b { color: var(--ink); }
+
+  /* the quarter as a line from request to deadline */
+  .tl { position: relative; margin: 34px 8px 0; height: 64px; }
+  .tl__base, .tl__done { position: absolute; left: 0; top: 30px; height: 2px; background: #D5D8DC; border-radius: 2px; }
+  .tl__base { right: 0; }
+  .tl__done { background: var(--ink); transition: width 0.6s var(--ease); }
+  .tl__tick { position: absolute; top: 25px; width: 2px; height: 12px; background: #B9BEC5; transform: translateX(-1px); }
+  .tl__tick.past { background: var(--ink); }
+  .tl__lbl { position: absolute; top: 42px; transform: translateX(-50%); font-size: 12px; color: var(--graphite); white-space: nowrap; text-align: center; line-height: 1.3; }
+  .tl__lbl .mono { display: block; color: var(--ink); }
+  .tl__lbl.first { transform: none; text-align: left; }
+  .tl__lbl.last { transform: translateX(-100%); text-align: right; }
+  .tl__now { position: absolute; top: 0; transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; transition: left 0.6s var(--ease); }
+  .tl__now span { font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); padding: 2px 8px; border-radius: 5px; white-space: nowrap; }
+  .tl__now i { width: 12px; height: 12px; border-radius: 50%; background: var(--paper); border: 3px solid var(--ink); }
+  .tl__end { position: absolute; right: 0; top: 25px; width: 12px; height: 12px; border-radius: 3px; background: var(--carmine); transform: translateX(50%) rotate(45deg); }
+
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+  .panel { background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; }
+  .panel__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--rule); }
+  .panel__head h2 { font-size: 16px; }
+  .panel__head .count { font-family: var(--mono); font-size: 13px; color: var(--graphite); }
+
+  /* decisions waiting for a person */
+  .review { margin-bottom: 20px; border-color: #E9D3A6; box-shadow: inset 4px 0 0 var(--ochre); }
+  .case { padding: 18px 20px 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 8px 28px; }
+  .case + .case { border-top: 1px solid var(--rule); }
+  .case h3 { font-size: 15.5px; }
+  .case h3 span { font-weight: 400; color: var(--graphite); }
+  .case p { margin-top: 6px; color: #4A4F57; max-width: 60ch; }
+  .case .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .read { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; font-size: 13px; align-content: start;
+          padding: 12px 14px; background: var(--desk); border-radius: 8px; }
+  .read dt { color: var(--graphite); font-family: var(--sans); font-size: 12.5px; padding-top: 1px; }
+  .read dd { margin: 0; overflow-wrap: anywhere; }
+
+  /* the client list as a checklist */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12.5px; font-weight: 400; color: var(--graphite); padding: 12px 10px; border-bottom: 1px solid var(--rule); }
+  th:first-child, td:first-child { padding-left: 20px; }
+  td { padding: 13px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; font-size: 14px; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tr.client { cursor: pointer; transition: background 0.15s; }
+  tr.client:hover td { background: #FAFAFB; }
+  .who b { display: block; font-weight: 700; }
+  .who span { font-size: 13px; color: var(--graphite); }
+  .who a { color: var(--graphite); }
+  .cell { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--graphite); white-space: nowrap; }
+  .cell.goedgekeurd { color: var(--petrol); }
+  .cell.afgewezen { color: var(--carmine); }
+  .cell.twijfel { color: var(--ochre); }
+  .cell.controleren { color: var(--indigo); }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .st { font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+  .st.compleet { color: var(--petrol); }
+  .st.bellen { color: var(--carmine); }
+  .st.beoordelen { color: var(--ochre); }
+  .st.controleren { color: var(--indigo); }
+  .st.wacht { color: var(--graphite); font-weight: 400; }
+  .detail td { background: #FAFAFB; padding: 4px 20px 18px; }
+  .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 8px; }
+  .doc { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 12px; display: grid; gap: 8px; align-content: start; }
+  .doc__top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .doc__top a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc .read { padding: 8px 10px; }
+  .doc__by { font-size: 12.5px; color: var(--graphite); }
+  .scenario { margin-top: 10px; font-size: 12.5px; color: var(--graphite); }
+  .empty { padding: 48px 20px; text-align: center; }
+  .empty h2 { font-size: 20px; }
+  .empty p { margin: 8px auto 0; color: var(--graphite); max-width: 48ch; }
+
+  /* log */
+  .log { list-style: none; margin: 0; padding: 6px 0; max-height: 420px; overflow: auto; }
+  .log li { display: grid; grid-template-columns: 46px 1fr; gap: 10px; padding: 8px 20px; font-size: 13.5px; line-height: 1.4; }
+  .log time { font-family: var(--mono); font-size: 12px; color: var(--graphite); padding-top: 1px; }
+  .log .ai_goedgekeurd, .log .compleet, .log .kantoor_goedgekeurd { color: var(--petrol); }
+  .log .ai_afgewezen, .log .bellen, .log .kantoor_afgewezen { color: var(--carmine); }
+  .log .ai_twijfel { color: var(--ochre); }
+  .log .klok { color: var(--graphite); font-style: italic; }
+
+  /* the time saved, as a sum the office can redo with its own minutes */
+  .sum { padding: 6px 20px 18px; }
+  .sum table td { padding: 8px 0; font-size: 13.5px; border-bottom: 1px solid var(--rule); }
+  .sum td:first-child { padding-left: 0; }
+  .sum .calc { text-align: right; white-space: nowrap; color: var(--graphite); padding-left: 8px; }
+  .sum .res { text-align: right; white-space: nowrap; font-family: var(--mono); padding-left: 12px; }
+  .sum input { width: 2.9em; padding: 2px 4px; border: 1px solid #CFD3D8; border-radius: 5px; text-align: right; font-family: var(--mono); font-size: 13px; background: var(--paper); }
+  .sum input#per-year { width: 3.6em; }
+  .sum input:focus { outline: 2px solid var(--ink); outline-offset: 0; }
+  .sum tr.total td { border-bottom: 0; border-top: 1.5px solid var(--ink); font-weight: 700; padding-top: 10px; }
+  .sum tr.year td { border-bottom: 0; color: var(--graphite); }
+  .sum tr.year .res { color: var(--ink); font-weight: 700; }
+  .sum .foot { margin-top: 10px; font-size: 12.5px; color: var(--graphite); }
+  aside { display: grid; gap: 20px; }
+
+  @media (max-width: 1060px) { .cols { grid-template-columns: 1fr; } .case { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) {
+    .wrap { padding: 0 16px 40px; } .meta .mono, .product { display: none; }
+    .hide-sm { display: none; } .tl__lbl.mid { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><span class="office">Voorbeeld Administratie</span><span class="product">Dossier Compleet</span></div>
+    <div class="meta"><span class="ai"><i></i><span id="model">Demomodus</span></span><span class="mono" id="today"></span></div>
+  </header>
+
+  <p class="demo-notice">Portfolio-demo · fictieve gegevens · extractie gesimuleerd in demomodus</p>
+  <nav class="present" aria-label="Presentatie">
+    <span class="present__label">Presentatie</span>
+    <button class="btn" id="b-start" onclick="post('/api/start')"><span class="step">1</span>Uitvraag klaarzetten</button>
+    <button class="btn btn--line" onclick="post('/api/demo/uploads', {round: 1})"><span class="step">2</span>Klanten uploaden</button>
+    <button class="btn btn--line" onclick="post('/api/clock', {days: 3})"><span class="step">3</span>3 dagen verder</button>
+    <button class="btn btn--line" onclick="post('/api/demo/uploads', {round: 2})"><span class="step">4</span>Klanten verbeteren</button>
+    <span class="busy" id="busy"></span>
+    <span class="spacer"></span>
+    <a class="btn btn--line" href="/outbox" target="_blank" rel="noopener">Lokale mailbox</a>
+    <button class="btn btn--line" onclick="confirm('Alleen de gegenereerde demodatabase opnieuw instellen? De lokale mailbox blijft bewaard.') && post('/api/reset')">Opnieuw</button>
+  </nav>
+
+  <section class="status" aria-live="polite">
+    <h1 id="headline">Dossiers Q3</h1>
+    <p id="subline"></p>
+    <div class="tl" id="timeline" aria-hidden="true"></div>
+  </section>
+
+  <div class="cols">
+    <div>
+      <div id="review"></div>
+      <section class="panel" aria-labelledby="h-clients">
+        <div class="panel__head"><h2 id="h-clients">Klanten</h2><a class="btn btn--line" href="/kantoor/export.csv">Exporteer naar boekhouding</a></div>
+        <div id="clients"></div>
+      </section>
+    </div>
+    <aside>
+      <section class="panel" aria-labelledby="h-log">
+        <div class="panel__head"><h2 id="h-log">Logboek</h2><span class="count" id="logcount"></span></div>
+        <ul class="log" id="log"></ul>
+      </section>
+      <section class="panel" aria-labelledby="h-sum">
+        <div class="panel__head"><h2 id="h-sum">Wat je hier test</h2><span class="count">demo</span></div>
+        <div class="sum" id="sum"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+<script>
+const CLEAN = false; // Demo labels are always visible.
+const SLOTS = [["bank", "Bankafschrift"], ["verkoop", "Verkoop"], ["inkoop", "Inkoop"]];
+const CELL = { ontbreekt: "Ontbreekt", controleren: "Lezen…", goedgekeurd: "Goed", afgewezen: "Afgewezen", twijfel: "Twijfel" };
+const ST = { compleet: "Compleet", wacht: "Wacht op klant", beoordelen: "Jouw beslissing", bellen: "Bellen", controleren: "Wordt gelezen" };
+const DOC = { controleren: "Wordt gelezen", goedgekeurd: "Goedgekeurd", afgewezen: "Afgewezen", twijfel: "Twijfel" };
+const CHECK = '<svg viewBox="0 0 13 13" aria-hidden="true"><path d="M2.5 6.8 5.2 9.4 10.6 3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CROSS = '<svg viewBox="0 0 13 13" aria-hidden="true"><path d="M3.5 3.5l6 6m0-6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+const markFor = (s) => `<span class="mark ${s}">${s === "goedgekeurd" ? CHECK : s === "afgewezen" ? CROSS : s === "twijfel" ? "?" : ""}</span>`;
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const MONTH = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const day = (d) => `${d.getDate()} ${MONTH[d.getMonth()]}`;
+const nlDate = (iso) => iso ? iso.split("-").reverse().join("-") : "";
+const money = (v) => typeof v === "number" ? "€ " + v.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+const hm = (m) => m >= 60 ? `${Math.floor(m / 60)} u ${String(Math.round(m % 60)).padStart(2, "0")} m` : `${Math.round(m)} min`;
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const DEADLINE = new Date("2026-10-31T00:00");
+const open = new Set();
+let timer, last = "", data;
+async function post(url, body) {
+  const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  if (!response.ok) { alert("Deze actie kon niet worden uitgevoerd. Wacht op de lopende controle en probeer opnieuw."); return; }
+  load();
+}
+
+async function load() {
+  const d = await (await fetch("/api/dashboard")).json();
+  const key = JSON.stringify(d) + [...open].join();
+  if (key !== last) { last = key; data = d; render(d); }  // re-draw only on change, so focus and hover are kept
+  clearTimeout(timer);
+  timer = setTimeout(load, d.queue ? 1000 : 2500);
+}
+
+const period = (r) => !r.van ? "" : r.soort !== "Bankafschrift" || r.van === r.tot ? ["Datum", nlDate(r.van)]
+  : ["Periode", r.van.slice(0, 4) === r.tot.slice(0, 4) ? `${nlDate(r.van).slice(0, 5)} t/m ${nlDate(r.tot)}` : `${nlDate(r.van)} t/m ${nlDate(r.tot)}`];
+// What the AI read, as label/value pairs, like the lines of a statement.
+function readList(r) {
+  if (!r) return "";
+  const rows = [["Gelezen als", r.soort], [r.soort === "Bankafschrift" ? "Op naam van" : "Van", r.naam], ["Aan", r.soort === "Factuur" ? r.aan : ""],
+    period(r) || ["", ""],
+    ["Bedrag", r.soort !== "Bankafschrift" ? money(r.totaal) : ""], ["Btw", r.soort !== "Bankafschrift" ? money(r.btw) : ""]].filter(([, v]) => v);
+  return `<dl class="read mono">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+}
+
+function timeline(d) {
+  const today = new Date(d.today + "T00:00");
+  const sent = d.clients.map((c) => c.request?.sent_at).filter(Boolean).sort()[0];
+  const start = sent ? new Date(sent.slice(0, 10) + "T00:00") : today;
+  const span = (DEADLINE - start) || 1;
+  const pos = (t) => Math.max(0, Math.min(100, ((t - start) / span) * 100));
+  const ticks = [3, 7, 14].map((n, i) => {
+    const t = new Date(start); t.setDate(t.getDate() + n);
+    return `<i class="tl__tick${sent && today >= t ? " past" : ""}" style="left:${pos(t)}%"></i>
+      <span class="tl__lbl mid" style="left:${pos(t)}%">Herinnering ${i + 1}<span class="mono">${day(t)}</span></span>`;
+  }).join("");
+  return `<span class="tl__base"></span><span class="tl__done" style="width:${sent ? pos(today) : 0}%"></span>${ticks}
+    <span class="tl__lbl first" style="left:0">${sent ? "Uitvraag" : "Nog niet verstuurd"}<span class="mono">${day(start)}</span></span>
+    <span class="tl__lbl last" style="left:100%">Deadline btw<span class="mono">${day(DEADLINE)}</span></span>
+    <i class="tl__end"></i>
+    ${sent ? `<span class="tl__now" style="left:${pos(today)}%"><span>Vandaag</span><i></i></span>` : ""}`;
+}
+
+function render(d) {
+  const k = d.kpi;
+  document.getElementById("model").textContent = d.model === "demo" ? "Demo · mockextractie" : `Lokaal model: ${d.model}`;
+  document.getElementById("today").textContent = `${day(new Date(d.today + "T00:00"))} 2026${d.clock_days && !CLEAN ? " (demo)" : ""}`;
+  document.getElementById("busy").innerHTML = d.queue ? `<span class="scan"></span>${plural(d.queue, "document wordt", "documenten worden")} gelezen` : "";
+  document.getElementById("b-start").disabled = d.started;
+
+  if (!d.started) {
+    document.getElementById("headline").textContent = "Nog geen uitvraag verstuurd.";
+    document.getElementById("subline").textContent = "Zet de uitvraag voor zes fictieve klanten klaar. De berichten blijven in de lokale mailbox.";
+  } else {
+    document.getElementById("headline").textContent = k.compleet === k.totaal ? `Alle ${k.totaal} dossiers compleet.` : `${k.compleet} van ${k.totaal} dossiers compleet.`;
+    const parts = [];
+    if (k.beoordelen) parts.push(`${plural(k.beoordelen, "document wacht", "documenten wachten")} op jouw beslissing`);
+    if (k.bellen) parts.push(`${plural(k.bellen, "klant", "klanten")} bellen`);
+    if (k.wacht) parts.push(`${k.wacht} ${k.wacht === 1 ? "wacht" : "wachten"} nog op de klant`);
+    const s = parts.join(", ");
+    document.getElementById("subline").innerHTML = `${s ? esc(s[0].toUpperCase() + s.slice(1)) + ". " : ""}Alle gegevens en uitkomsten zijn onderdeel van de demo.`;
+  }
+  document.getElementById("timeline").innerHTML = timeline(d);
+
+  document.getElementById("review").innerHTML = d.review.length ? `<section class="panel review" aria-labelledby="h-review">
+    <div class="panel__head"><h2 id="h-review">Jouw beslissing nodig</h2><span class="count">${d.review.length}</span></div>
+    ${d.review.map((r) => `<div class="case">
+      <div><h3>${esc(r.business)} <span>· ${esc(r.slot_label.split(" (")[0])}</span></h3><p>${esc(r.office_msg)}</p></div>
+      ${readList(r.read)}
+      <div class="acts"><button class="btn" onclick="post('/api/review',{upload_id:${r.upload_id},decision:'goedgekeurd'})">Goedkeuren</button>
+        <button class="btn btn--danger" onclick="post('/api/review',{upload_id:${r.upload_id},decision:'afgewezen'})">Afwijzen en klant mailen</button>
+        <a class="btn btn--line" href="/files/${r.upload_id}" target="_blank">Document openen</a></div></div>`).join("")}
+  </section>` : "";
+
+  document.getElementById("clients").innerHTML = !d.started
+    ? `<div class="empty"><h2>De lijst vult zich na de uitvraag</h2><p>Per klant zie je dan welke stukken binnen zijn, wat er mis was en wie gebeld moet worden.</p></div>`
+    : `<table><thead><tr><th>Klant</th>${SLOTS.map(([, l]) => `<th class="hide-sm">${l}</th>`).join("")}<th class="hide-sm">Herinnerd</th><th>Status</th></tr></thead>
+       <tbody>${d.clients.map(row).join("")}</tbody></table>`;
+
+  document.getElementById("logcount").textContent = d.events.length ? `${d.events.length} regels` : "";
+  document.getElementById("log").innerHTML = d.events.length
+    ? d.events.map((e) => `<li><time>${e.at.slice(11, 16)}</time><span class="${e.kind}">${esc(e.detail)}</span></li>`).join("")
+    : `<li><span></span><span class="muted">Hier verschijnt alles wat het systeem doet.</span></li>`;
+  document.getElementById("sum").innerHTML = `<p style="padding-top:14px">Uitvraag → controle → menselijke beoordeling → herinnering → compleet dossier.</p><p class="foot">Geen gemeten klantresultaten of tijdsbesparing. E-mails blijven lokaal; mockvelden simuleren de documentextractie.</p>`;
+}
+
+function row(c) {
+  const r = c.request;
+  const cells = SLOTS.map(([s]) => `<td class="hide-sm"><span class="cell ${r.slots[s].status}">${markFor(r.slots[s].status)}${CELL[r.slots[s].status]}</span></td>`).join("");
+  const docs = Object.values(r.slots).flatMap((v) => v.uploads);
+  const detail = open.has(c.id) ? `<tr class="detail"><td colspan="6">${docs.length ? `<div class="docs">${docs.map((u) => `<div class="doc">
+      <div class="doc__top"><a class="mono" href="/files/${u.id}" target="_blank">${esc(u.filename)}</a><span class="cell ${u.status}">${markFor(u.status)}${DOC[u.status]}</span></div>
+      ${readList(u.read)}<span class="doc__by">${u.decided_by === "kantoor" ? "Besloten door het kantoor" : u.decided_by ? `${u.decided_by === "demo-regels" ? "Demo-regels op mockvelden" : "Gecontroleerd door lokale AI"}${u.seconds ? ` in ${String(u.seconds).replace(".", ",")} s` : ""}` : "Wordt gelezen"}</span></div>`).join("")}</div>`
+      : `<p class="scenario">Nog niets geüpload.</p>`}${CLEAN ? "" : `<p class="scenario">Demoscenario: ${esc(c.story)}.</p>`}</td></tr>` : "";
+  return `<tr class="client" tabindex="0" onkeydown="if(event.target===this && (event.key==='Enter'||event.key===' ')){event.preventDefault();toggle('${c.id}')}" onclick="toggle('${c.id}')" aria-expanded="${open.has(c.id)}"><td class="who"><b>${esc(c.business)}</b>
+      <span>${esc(c.name)}, dag ${r.days_open}. <a href="/u/${r.token}" target="_blank" onclick="event.stopPropagation()">Portaal</a></span></td>
+    ${cells}<td class="hide-sm num">${r.reminders ? `${r.reminders}×` : "–"}</td><td><span class="st ${r.status}">${ST[r.status]}</span></td></tr>${detail}`;
+}
+
+function toggle(id) { open.has(id) ? open.delete(id) : open.add(id); last = ""; load(); }
+load();
+</script>
+</body>
+</html>

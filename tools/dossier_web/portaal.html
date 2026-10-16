@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documenten uploaden</title>
+<link rel="preload" href="/static/atkinson-next.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .sheet { max-width: 640px; margin: 28px auto 48px; background: var(--paper); border-radius: 14px; padding: 28px 36px 36px;
+           box-shadow: 0 1px 0 var(--rule), 0 20px 50px -30px rgba(21, 24, 29, 0.25); }
+  .bar { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+  .office { font-weight: 650; letter-spacing: -0.01em; }
+  .private { color: var(--graphite); font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+  .private svg { width: 12px; height: 12px; }
+  .eyebrow { margin-top: 30px; color: var(--graphite); font-size: 14px; }
+  h1 { font-size: clamp(27px, 6vw, 34px); letter-spacing: -0.02em; line-height: 1.12; margin-top: 10px; text-wrap: balance; }
+  .lead { margin-top: 12px; color: var(--graphite); font-size: 16px; max-width: 46ch; text-wrap: pretty; }
+  .due { margin-top: 14px; display: inline-flex; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 6px; background: var(--desk); font-size: 13px; }
+  .due b { font-weight: 600; }
+
+  .track { list-style: none; padding: 0; margin: 28px 0 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .track li { display: grid; gap: 7px; font-size: 12.5px; color: var(--graphite); }
+  .track i { height: 5px; border-radius: 3px; background: var(--rule); transition: background 0.4s var(--ease); }
+  .track .goedgekeurd i { background: var(--petrol); }
+  .track .afgewezen i { background: var(--carmine); }
+  .track .twijfel i { background: var(--ochre); }
+  .track .controleren i { background: repeating-linear-gradient(90deg, var(--indigo) 0 6px, var(--indigo-wash) 6px 10px); }
+
+  .item { padding: 22px 0; border-top: 1px solid var(--rule); }
+  .item:first-child { border-top: 0; }
+  .item__head { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; }
+  .item__head .mark { margin-top: 2px; }
+  .item h2 { font-size: 17px; }
+  .hint { margin-top: 3px; color: var(--graphite); font-size: 14px; max-width: 46ch; }
+  .state { font-size: 13px; font-weight: 550; white-space: nowrap; padding-top: 2px; }
+  .is-goedgekeurd .state { color: var(--petrol); }
+  .is-afgewezen .state { color: var(--carmine); }
+  .is-twijfel .state { color: var(--ochre); }
+  .is-controleren .state, .is-ontbreekt .state { color: var(--graphite); }
+
+  .docs { list-style: none; margin: 14px 0 0 32px; padding: 0; display: grid; gap: 8px; }
+  .doc { border: 1px solid var(--rule); border-radius: 10px; padding: 11px 13px; }
+  .doc__top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .doc__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc__state { font-size: 12.5px; font-weight: 550; white-space: nowrap; }
+  .doc.goedgekeurd .doc__state { color: var(--petrol); }
+  .doc.afgewezen { border-color: #EEC5CC; }
+  .doc.afgewezen .doc__state { color: var(--carmine); }
+  .doc.twijfel .doc__state { color: var(--ochre); }
+  .doc.controleren .doc__state { color: var(--indigo); }
+  .read { margin: 9px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: 13px; }
+  .read dt { color: var(--graphite); font-family: var(--sans); font-size: 12.5px; padding-top: 1px; }
+  .read dd { margin: 0; overflow-wrap: anywhere; }
+  .note { margin-top: 9px; padding: 9px 11px; border-radius: 7px; font-size: 14px; }
+  .doc.afgewezen .note { background: var(--carmine-wash); color: #7A1626; }
+  .doc.twijfel .note { background: var(--ochre-wash); color: #5E3D00; }
+  .doc.goedgekeurd .note { display: none; }
+  .doc .scan { margin-top: 10px; }
+  .reading { margin-top: 7px; font-size: 12px; color: var(--indigo); }
+
+  .upload { margin: 14px 0 0 32px; }
+  .upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .upload label { width: 100%; }
+  .upload input:focus-visible + label { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .done { margin-top: 26px; padding: 18px 20px; border-radius: 12px; background: var(--petrol-wash); display: flex; gap: 14px; align-items: flex-start; }
+  .done .mark { width: 26px; height: 26px; border-radius: 7px; }
+  .done p { color: #0B474E; }
+  .done b { display: block; font-size: 16px; }
+
+  footer { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--graphite); }
+
+  @media (max-width: 640px) {
+    .sheet { margin: 0; border-radius: 0; padding: 20px 18px 32px; box-shadow: none; min-height: 100vh; }
+    .docs, .upload { margin-left: 0; }
+    .item__head { grid-template-columns: auto 1fr; }
+    .state { grid-column: 2; padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <div class="bar">
+    <span class="office" id="office">…</span>
+    <span class="private"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 5V3.6a2.5 2.5 0 0 1 5 0V5" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="5" width="8" height="6" rx="1.5" fill="currentColor"/></svg>Fictief klantportaal · demo</span>
+  </div>
+  <p class="demo-notice">Portfolio-demo · gebruik uitsluitend de gegenereerde mockbestanden</p>
+  <p class="eyebrow" id="eyebrow">Btw-aangifte</p>
+  <h1 id="hello">Even laden…</h1>
+  <p class="lead" id="lead"></p>
+  <p class="due mono" id="due"></p>
+  <div id="done"></div>
+  <ol class="track" id="track" aria-label="Voortgang"></ol>
+  <div id="slots"></div>
+  <footer>Demomodus leest mockvelden uit JSON; dit is geen echte documentextractie. De optionele modelmodus werkt lokaal. Gebruik uitsluitend fictieve gegevens.</footer>
+</main>
+<script>
+const token = location.pathname.split("/").pop();
+const SHORT = { bank: "Bankafschrift", verkoop: "Verkoop", inkoop: "Inkoop" };
+const STATE = { ontbreekt: "Nog nodig", controleren: "Wordt gelezen", goedgekeurd: "Binnen", afgewezen: "Opnieuw nodig", twijfel: "Wordt bekeken" };
+const DOC = { controleren: "Wordt gelezen", goedgekeurd: "Goedgekeurd", afgewezen: "Afgewezen", twijfel: "Bij het kantoor" };
+const WORD = ["geen", "één", "twee", "drie", "vier"];
+const CHECK = '<svg viewBox="0 0 13 13" aria-hidden="true"><path d="M2.5 6.8 5.2 9.4 10.6 3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CROSS = '<svg viewBox="0 0 13 13" aria-hidden="true"><path d="M3.5 3.5l6 6m0-6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+const markFor = (s) => `<span class="mark ${s}">${s === "goedgekeurd" ? CHECK : s === "afgewezen" ? CROSS : s === "twijfel" ? "?" : ""}</span>`;
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const nlDate = (iso) => iso ? iso.split("-").reverse().join("-") : "";
+const money = (v) => typeof v === "number" ? "€ " + v.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+let timer, last = "";
+
+const period = (r) => !r.van ? "" : r.soort !== "Bankafschrift" || r.van === r.tot ? ["Datum", nlDate(r.van)]
+  : ["Periode", r.van.slice(0, 4) === r.tot.slice(0, 4) ? `${nlDate(r.van).slice(0, 5)} t/m ${nlDate(r.tot)}` : `${nlDate(r.van)} t/m ${nlDate(r.tot)}`];
+// What the AI read, as label/value pairs, like the lines of a statement.
+function readLine(r) {
+  if (!r) return "";
+  const rows = [["Gelezen als", r.soort], [r.soort === "Bankafschrift" ? "Op naam van" : "Van", r.naam],
+    period(r) || ["", ""],
+    ["Bedrag", r.soort !== "Bankafschrift" ? money(r.totaal) : ""]].filter(([, v]) => v);
+  return `<dl class="read mono">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+}
+
+function render(d) {
+  document.title = `Documenten uploaden · ${d.office}`;
+  document.getElementById("office").textContent = d.office;
+  document.getElementById("eyebrow").textContent = `${d.office} vraagt stukken op voor de btw-aangifte van het 3e kwartaal`;
+  const open = d.slots.filter((s) => s.status !== "goedgekeurd").length;
+  const days = Math.round((new Date("2026-10-31") - new Date(d.today)) / 864e5);
+  document.getElementById("hello").textContent = d.complete ? `Alles is binnen, ${d.first_name}.`
+    : open === d.slots.length ? `${d.first_name}, we hebben ${WORD[open]} dingen van je nodig.`
+    : `${d.first_name}, nog ${WORD[open]} ${open === 1 ? "ding" : "dingen"} en je bent klaar.`;
+  document.getElementById("lead").textContent = d.complete
+    ? "Je hoeft niets meer te doen. We laten het je weten als de aangifte is ingediend."
+    : `Voor de btw-aangifte van ${d.business} over juli, augustus en september. Na het uploaden zie je meteen of het klopt.`;
+  document.getElementById("due").innerHTML = `Uiterlijk <b>31-10-2026</b>, ${days > 0 ? `nog ${days} dagen` : "vandaag"}`;
+  document.getElementById("done").innerHTML = d.complete
+    ? `<div class="done">${markFor("goedgekeurd")}<p><b>Je dossier is compleet.</b>Bedankt voor het aanleveren.</p></div>` : "";
+  document.getElementById("track").innerHTML = d.slots.map((s) => `<li class="${s.status}"><i></i>${SHORT[s.slot]}</li>`).join("");
+
+  document.getElementById("slots").innerHTML = d.slots.map((s) => `
+    <section class="item is-${s.status}">
+      <div class="item__head">${markFor(s.status)}
+        <div><h2>${esc(s.label)}</h2><p class="hint">${esc(s.period)}. ${esc(s.hint)}</p></div>
+        <span class="state">${STATE[s.status]}</span></div>
+      ${s.uploads.length ? `<ul class="docs">${s.uploads.map((u) => `
+        <li class="doc ${u.status}">
+          <div class="doc__top"><span class="doc__name mono">${esc(u.filename)}</span><span class="doc__state">${DOC[u.status]}</span></div>
+          ${u.status === "controleren"
+            ? `<div class="scan"></div><p class="reading mono">Soort, periode, naam en bedragen worden gelezen…</p>`
+            : `${readLine(u.read)}${u.message ? `<p class="note">${esc(u.message)}</p>` : ""}`}
+        </li>`).join("")}</ul>` : ""}
+      ${d.complete ? "" : `<div class="upload"><input type="file" id="f-${s.slot}" accept=".json,.pdf,image/*" multiple onchange="send('${s.slot}', this)">
+        <label class="btn ${s.status === "goedgekeurd" ? "btn--line" : ""}" for="f-${s.slot}">${s.status === "goedgekeurd" ? "Nog een bestand toevoegen" : "Kies een mockbestand (.json)"}</label></div>`}
+    </section>`).join("");
+}
+
+async function load() {
+  const res = await fetch(`/api/u/${token}`);
+  if (!res.ok) { document.getElementById("hello").textContent = "Deze link werkt niet meer."; return; }
+  const d = await res.json();
+  const key = JSON.stringify(d);
+  if (key !== last) { last = key; render(d); }  // only re-draw on change, so focus is kept
+  clearTimeout(timer);
+  timer = setTimeout(load, d.slots.some((s) => s.status === "controleren") ? 1200 : 4000);
+}
+
+async function send(slot, input) {
+  for (const file of input.files) {
+    const response = await fetch(`/api/u/${token}/upload?slot=${slot}&name=${encodeURIComponent(file.name)}`, { method: "POST", body: file });
+    if (!response.ok) { alert("Upload mislukt. Controleer bestand en grootte (maximaal 20 MB)."); break; }
+  }
+  input.value = "";
+  load();
+}
+load();
+</script>
+</body>
+</html>
